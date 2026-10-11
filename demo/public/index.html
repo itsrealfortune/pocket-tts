@@ -38,6 +38,10 @@
       <label for="mode">Mode</label>
       <select id="mode"><option value="cloud">cloud (Kyutai API)</option></select>
     </div>
+    <div id="lang-wrap">
+      <label for="lang">Langue</label>
+      <select id="lang"></select>
+    </div>
     <div id="voice-wrap">
       <label for="voice">Voice</label>
       <select id="voice"></select>
@@ -82,7 +86,7 @@ class PocketPlayer extends AudioWorkletProcessor {
     super();
     this.queue = [];      // pending Float32Array chunks
     this.offset = 0;      // read position in the head chunk
-    this.started = false;
+    this.gain = 0;        // smoothed gain (kills underrun clicks)
     this.samplesPlayed = 0;
     this.port.onmessage = (e) => {
       if (e.data === 'flush') { this.port.postMessage({ samplesPlayed: this.samplesPlayed }); }
@@ -102,6 +106,16 @@ class PocketPlayer extends AudioWorkletProcessor {
       this.offset += take; pos += take; need -= take;
       this.samplesPlayed += take;
       if (this.offset >= head.length) { this.queue.shift(); this.offset = 0; }
+    }
+    // Smooth gain: ramp toward 1 while fed, toward 0 on underrun.
+    // Local mode generates slower than realtime, so underruns are
+    // normal — this turns hard clicks into short crossfades (~20ms).
+    const target = pos === out.length ? 1 : 0;
+    const step = 1 / 960;
+    for (let i = 0; i < out.length; i++) {
+      if (this.gain < target) this.gain = Math.min(target, this.gain + step);
+      else if (this.gain > target) this.gain = Math.max(target, this.gain - step);
+      out[i] *= this.gain;
     }
     return true;
   }
@@ -151,17 +165,43 @@ async function loadConfig() {
       fetch('/api/local/prepare', { method: 'POST' }).then(() => setStatus(''));
     }
   }
-  modeSel.onchange = fillVoices;
+  modeSel.onchange = () => { fillLangs(); fillVoices(); };
+  fillLangs();
   fillVoices();
+}
+
+function fillLangs() {
+  const sel = $('lang');
+  sel.innerHTML = '';
+  if ($('mode').value === 'cloud') {
+    for (const l of config.cloud.languages) sel.appendChild(new Option(l, l));
+    sel.value = 'french';
+    sel.disabled = false;
+    sel.onchange = () => {
+      // Voices are language-agnostic; keep selection if still valid.
+      fillVoices();
+    };
+  } else {
+    sel.appendChild(new Option('bundle du serveur', ''));
+    sel.disabled = true;
+  }
 }
 
 function fillVoices() {
   const sel = $('voice');
+  const previous = sel.value;
   sel.innerHTML = '';
   if ($('mode').value === 'cloud') {
-    for (const v of config.cloud.voices) {
-      sel.appendChild(new Option(`${v.name} (${v.gender[0]}, ${v.style})${v.languageHint ? ' · ' + v.languageHint : ''}`, v.id));
+    // Put the selected language's native voices first.
+    const lang = $('lang').value;
+    const sorted = [...config.cloud.voices].sort((a, b) =>
+      (b.languageHint === lang) - (a.languageHint === lang),
+    );
+    for (const v of sorted) {
+      const tag = v.languageHint ? ` · ${v.languageHint}` : '';
+      sel.appendChild(new Option(`${v.name} (${v.gender[0]}, ${v.style})${tag}`, v.id));
     }
+    if ([...sel.options].some((o) => o.value === previous)) sel.value = previous;
     sel.disabled = false;
   } else {
     sel.appendChild(new Option('ma voix (POCKET_VOICE)', ''));
@@ -188,33 +228,64 @@ async function play() {
 
   const t0 = performance.now();
   let firstAt = null, chunks = 0, samples = 0;
+  let carry = new Uint8Array(0); // holds an odd trailing byte between chunks
+  let pending = new Float32Array(0); // small prebuffer: start after 200ms
+  const PREBUFFER = SAMPLE_RATE / 5;
+  let started = false;
   abortCtl = new AbortController();
   try {
     const node = await ensureAudio();
     const res = await fetch('/api/tts/stream', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, mode: $('mode').value, voice: $('voice').value }),
+      body: JSON.stringify({ text, mode: $('mode').value, voice: $('voice').value, language: $('lang').value }),
       signal: abortCtl.signal,
     });
     if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+
+    const send = (f32) => {
+      node.port.postMessage(f32, [f32.buffer]);
+      chunks++; samples += f32.length;
+      $('chunks').textContent = String(chunks);
+      $('dur').textContent = `${(samples / SAMPLE_RATE).toFixed(1)}s`;
+    };
 
     const reader = res.body.getReader();
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       if (firstAt === null) { firstAt = performance.now() - t0; $('ttfb').textContent = `${Math.round(firstAt)}ms`; setStatus('Lecture en cours…'); }
-      // PCM16LE -> Float32
-      const pcm16 = new Int16Array(value.buffer, value.byteOffset, value.byteLength / 2);
+      // Reassemble complete int16 samples across chunk boundaries
+      // (network chunks can split a sample; a stray byte would shift
+      // every following sample and produce static).
+      const merged = new Uint8Array(carry.length + value.length);
+      merged.set(carry, 0); merged.set(value, carry.length);
+      const count = merged.length >> 1;
+      if (count === 0) { carry = merged; continue; }
+      const pcm16 = new Int16Array(merged.buffer, 0, count);
+      carry = merged.length % 2 === 1 ? merged.slice(count * 2) : new Uint8Array(0);
+      // Fade in on the very first samples to avoid a click
       const f32 = new Float32Array(pcm16.length);
       let peak = 0;
-      for (let i = 0; i < pcm16.length; i++) { const v = pcm16[i] / 32768; f32[i] = v; if (Math.abs(v) > peak) peak = Math.abs(v); }
-      node.port.postMessage(f32, [f32.buffer]);
-      chunks++; samples += f32.length;
-      $('chunks').textContent = String(chunks);
-      $('dur').textContent = `${(samples / SAMPLE_RATE).toFixed(1)}s`;
-      drawLevel(Math.min(1, peak));
+      for (let i = 0; i < pcm16.length; i++) {
+        let v = pcm16[i] / 32768;
+        if (!started && samples + i < 480) v *= (samples + i) / 480;
+        f32[i] = v;
+        if (Math.abs(v) > peak) peak = Math.abs(v);
+      }
+      started = true;
+      if (pending.length < PREBUFFER) {
+        const grown = new Float32Array(pending.length + f32.length);
+        grown.set(pending); grown.set(f32, pending.length);
+        pending = grown;
+        if (pending.length >= PREBUFFER) { send(pending); pending = new Float32Array(0); drawLevel(Math.min(1, peak)); }
+      } else {
+        send(f32);
+        drawLevel(Math.min(1, peak));
+      }
     }
+    // Flush whatever the prebuffer still holds
+    if (pending.length > 0) send(pending);
     setStatus(`Terminé — TTFB ${firstAt ? Math.round(firstAt) : '?'}ms, ${(samples / SAMPLE_RATE).toFixed(2)}s d'audio`);
   } catch (err) {
     if ((err).name !== 'AbortError') setStatus(String(err.message ?? err), true);
@@ -245,7 +316,7 @@ async function downloadWav() {
     const res = await fetch('/api/tts/wav', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, mode: $('mode').value, voice: $('voice').value }),
+      body: JSON.stringify({ text, mode: $('mode').value, voice: $('voice').value, language: $('lang').value }),
     });
     if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
     const blob = await res.blob();

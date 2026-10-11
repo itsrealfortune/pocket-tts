@@ -86,37 +86,58 @@ export class WavStreamDecoder {
 			this.#headerDone = true;
 		}
 
-		let offset = 0;
-		if (this.#hasCarry && this.#buffer.length >= 1) {
-			// Complete the int16 sample started by the previous chunk.
-			this.#buffer[1] = this.#buffer[0] as number;
-			this.#carry |= (this.#buffer[0] as number) << 8;
-			offset = 1;
+		let start = 0;
+		let leadSample: number | undefined;
+		if (this.#hasCarry) {
+			if (this.#buffer.length === 0) {
+				return new Float32Array(0);
+			}
+			// Little-endian: #carry is the low byte, buffer[0] the high byte.
+			const unsigned = this.#carry | ((this.#buffer[0] as number) << 8);
+			const signed = unsigned > 0x7fff ? unsigned - 0x10000 : unsigned;
+			leadSample = signed / 32768;
+			start = 1;
 			this.#hasCarry = false;
 		}
 
-		const available = this.#buffer.length - offset;
-		if (available < 2) {
+		const available = this.#buffer.length - start;
+		const completeSamples = available >> 1;
+		const total = completeSamples + (leadSample !== undefined ? 1 : 0);
+		if (total === 0) {
 			if (available === 1) {
-				this.#carry = this.#buffer[offset] as number;
+				// Odd trailing byte: keep it as the low half of the next sample.
+				this.#carry = this.#buffer[start] as number;
 				this.#hasCarry = true;
 				this.#buffer = new Uint8Array(0);
 			}
 			return new Float32Array(0);
 		}
 
-		const sampleCount = Math.floor(available / 2);
-		const out = new Float32Array(sampleCount);
-		const view = new DataView(
-			this.#buffer.buffer,
-			this.#buffer.byteOffset + offset,
-			sampleCount * 2,
-		);
-		for (let i = 0; i < sampleCount; i++) {
-			out[i] = view.getInt16(i * 2, true) / 32768;
+		const out = new Float32Array(total);
+		let outIdx = 0;
+		if (leadSample !== undefined) {
+			out[outIdx++] = leadSample;
 		}
-		// Keep the trailing odd byte (partial sample) for the next push.
-		this.#buffer = this.#buffer.subarray(offset + sampleCount * 2);
+		if (completeSamples > 0) {
+			const view = new DataView(
+				this.#buffer.buffer,
+				this.#buffer.byteOffset + start,
+				completeSamples * 2,
+			);
+			for (let i = 0; i < completeSamples; i++) {
+				out[outIdx++] = view.getInt16(i * 2, true) / 32768;
+			}
+		}
+		const consumed = start + completeSamples * 2;
+		if (consumed < this.#buffer.length) {
+			// Exactly one odd byte remains: move it into the carry and
+			// drop it from the buffer (it must not be read twice).
+			this.#carry = this.#buffer[consumed] as number;
+			this.#hasCarry = true;
+			this.#buffer = new Uint8Array(0);
+		} else {
+			this.#buffer = this.#buffer.subarray(consumed);
+		}
 		return out;
 	}
 

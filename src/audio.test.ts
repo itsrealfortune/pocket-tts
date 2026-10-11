@@ -97,6 +97,37 @@ describe("WavStreamDecoder", () => {
 		const decoder = new WavStreamDecoder();
 		expect(() => decoder.push(new Uint8Array(64))).toThrow(AudioDecodeError);
 	});
+
+	it("decodes exactly with odd chunk boundaries (byte carry)", () => {
+		// Regression: chunk sizes that split int16 samples across pushes.
+		// The old carry logic shifted every sample after a split -> static.
+		const pcm = sine(0.05);
+		const wav = pcmToWav(pcm);
+		const decoder = new WavStreamDecoder();
+		const out: number[] = [];
+		const sizes = [1, 3, 7, 2, 5, 11, 4];
+		let i = 0;
+		let k = 0;
+		while (i < wav.length) {
+			const n = sizes[k % sizes.length] as number;
+			k++;
+			const got = decoder.push(new Uint8Array(wav.subarray(i, i + n)));
+			for (const s of got) {
+				out.push(s);
+			}
+			i += n;
+		}
+		expect(out.length).toBe(pcm.length);
+		// Exact equality (int16 round-trip is deterministic)
+		let maxDiff = 0;
+		for (let j = 0; j < pcm.length; j++) {
+			maxDiff = Math.max(
+				maxDiff,
+				Math.abs((pcm[j] as number) - (out[j] as number)),
+			);
+		}
+		expect(maxDiff).toBeLessThan(1e-4);
+	});
 });
 
 describe("resamplePcm", () => {

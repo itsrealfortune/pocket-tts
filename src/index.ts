@@ -102,6 +102,8 @@ export {
 	CLOUD_DEFAULT_VOICE,
 	CLOUD_LANGUAGES,
 	CLOUD_VOICES,
+	isCloudLanguage,
+	isLocalLanguage,
 	listCloudLanguages,
 	listCloudVoices,
 	listLocalLanguages,

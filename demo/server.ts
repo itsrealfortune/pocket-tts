@@ -27,6 +27,7 @@ import { Hono } from "hono";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
+	isCloudLanguage,
 	listCloudLanguages,
 	listCloudVoices,
 	listLocalLanguages,
@@ -89,10 +90,23 @@ function getLocal(): Promise<PocketTTSInstance> {
 }
 
 /** Builds a cloud instance for one request (voice fixed per instance). */
-async function getCloud(voice?: string): Promise<PocketTTSInstance> {
+/**
+ * Builds a cloud instance for one request (voice fixed per instance).
+ * Invalid languages fall through to the module's UnknownLanguageError,
+ * surfaced as a 503 by the callers.
+ */
+async function getCloud(
+	voice?: string,
+	language = "french",
+): Promise<PocketTTSInstance> {
+	if (!isCloudLanguage(language)) {
+		throw new Error(
+			`Unknown cloud language "${language}". Available: ${listCloudLanguages().join(", ")}`,
+		);
+	}
 	return PocketTTS.load({
 		mode: "cloud",
-		language: "french",
+		language,
 		voice: voice ?? "estelle",
 		...(CLOUD_ENDPOINT ? { endpoint: CLOUD_ENDPOINT } : {}),
 	});
@@ -102,11 +116,12 @@ async function getCloud(voice?: string): Promise<PocketTTSInstance> {
 async function resolveInstance(
 	mode: string,
 	voice?: string,
+	language?: string,
 ): Promise<PocketTTSInstance> {
 	if (mode === "local") {
 		return getLocal();
 	}
-	return getCloud(voice);
+	return getCloud(voice, language);
 }
 
 const app = new Hono();
@@ -150,6 +165,7 @@ interface TtsRequest {
 	text: string;
 	mode?: string;
 	voice?: string;
+	language?: string;
 }
 
 app.post("/api/tts/stream", async (c) => {
@@ -161,7 +177,7 @@ app.post("/api/tts/stream", async (c) => {
 
 	let tts: PocketTTSInstance;
 	try {
-		tts = await resolveInstance(mode, body.voice);
+		tts = await resolveInstance(mode, body.voice, body.language);
 	} catch (error) {
 		return c.json({ error: (error as Error).message }, 503);
 	}
@@ -212,7 +228,7 @@ app.post("/api/tts/wav", async (c) => {
 		return c.json({ error: "text is required" }, 400);
 	}
 	try {
-		const tts = await resolveInstance(body.mode ?? "cloud", body.voice);
+		const tts = await resolveInstance(body.mode ?? "cloud", body.voice, body.language);
 		const result = await tts.synthesize(body.text);
 		return new Response(new Uint8Array(result.wav), {
 			headers: {
