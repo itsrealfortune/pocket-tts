@@ -1,6 +1,6 @@
 {
 	"name": "pocket-tts",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"license": "MIT",
 	"description": "Streaming Pocket TTS for Node.js — cloud mode (Kyutai API, 24 built-in voices) and local mode (ONNX runtime with zero-shot voice cloning).",
 	"repository": {
