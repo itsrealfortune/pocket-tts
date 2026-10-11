@@ -174,6 +174,9 @@ app.post("/api/tts/stream", async (c) => {
 		return c.json({ error: "text is required" }, 400);
 	}
 	const mode = body.mode ?? "cloud";
+	console.log(
+		`[tts] mode=${mode} lang=${body.language ?? "-"} voice=${body.voice ?? "-"} text="${body.text.slice(0, 40)}…"`,
+	);
 
 	let tts: PocketTTSInstance;
 	try {
