@@ -74,6 +74,25 @@ export interface PreparedVoice {
 }
 
 const MAX_FRAMES = 500;
+
+/** BigInt cache for small token ids (avoids per-call BigInt allocation). */
+const BIGINT_CACHE: bigint[] = [];
+for (let i = 0; i < 1024; i++) {
+	BIGINT_CACHE[i] = BigInt(i);
+}
+
+function toBig(value: number): bigint {
+	return BIGINT_CACHE[value] ?? BigInt(value);
+}
+
+/** Converts token ids to a BigInt64Array using the cache. */
+function buildTokenIds(tokenIds: number[]): BigInt64Array {
+	const out = new BigInt64Array(tokenIds.length);
+	for (let i = 0; i < tokenIds.length; i++) {
+		out[i] = toBig(tokenIds[i] as number);
+	}
+	return out;
+}
 const EOS_THRESHOLD = -4.0;
 const CHUNK_GAP_SEC = 0.25;
 const FIRST_CHUNK_FRAMES = 3;
@@ -373,7 +392,11 @@ export class LocalPocketTTS implements PocketTTSInstance {
 		if (dims.length < 3) {
 			dims = [1, dims[0] as number, dims[1] as number];
 		}
-		const embedding = new Float32Array(encOut.data as ArrayLike<number>);
+		// ORT float32 outputs are already Float32Array — reuse, no copy.
+		const embedding =
+			encOut.data instanceof Float32Array
+				? encOut.data
+				: new Float32Array(encOut.data as ArrayLike<number>);
 
 		// Flow LM prefill: condition the KV caches on the speaker embedding
 		// (optionally prefixed with the BOS marker).
@@ -581,17 +604,21 @@ export class LocalPocketTTS implements PocketTTSInstance {
 				await this.#sessions.textConditioner.run({
 					token_ids: this.#tensor(
 						"int64",
-						BigInt64Array.from(tokenIds.map((t) => BigInt(t))),
+						buildTokenIds(tokenIds),
 						[1, tokenIds.length],
 					),
 				})
 			)[this.#sessions.textConditioner.outputNames[0] as string] as OrtTensor;
 			if (textEmb.dims.length === 2) {
-				textEmb = this.#tensor(
-					"float32",
-					new Float32Array(textEmb.data as ArrayLike<number>),
-					[1, textEmb.dims[0] as number, textEmb.dims[1] as number],
-				);
+				const embData =
+					textEmb.data instanceof Float32Array
+						? textEmb.data
+						: new Float32Array(textEmb.data as ArrayLike<number>);
+				textEmb = this.#tensor("float32", embData, [
+					1,
+					textEmb.dims[0] as number,
+					textEmb.dims[1] as number,
+				]);
 			}
 
 			const condResult = await this.#sessions.flowLmMain.run({
@@ -686,7 +713,11 @@ export class LocalPocketTTS implements PocketTTSInstance {
 					const audioOut = decodeResult[
 						this.#sessions.mimiDecoder.outputNames[0] as string
 					] as OrtTensor;
-					const pcm = new Float32Array(audioOut.data as ArrayLike<number>);
+					// Reuse the ORT output buffer (fresh per run, safe to yield).
+					const pcm =
+						audioOut.data instanceof Float32Array
+							? audioOut.data
+							: new Float32Array(audioOut.data as ArrayLike<number>);
 					const isLast = shouldStop && chunkIdx === textChunks.length - 1;
 					yield { pcm, sampleRate: SAMPLE_RATE, isFirst, isLast };
 					isFirst = false;

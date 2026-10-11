@@ -1,0 +1,23 @@
+=== pocket-tts perf (cpu: Intel(R) Core(TM) i5-7500 CPU @ 3.40GHz) ===
+
+pcmToWav (30s audio)                       4.0ms
+wavToPcm mono (30s)                        2.3ms
+wavToPcm stereo (30s)                      2.0ms
+WavStreamDecoder (30s, 4KB chunks)         3.6ms
+WavStreamDecoder (30s, 64KB chunks)        1.9ms
+resamplePcm 44.1k->24k (5s)                0.6ms
+ensureBundle (8 files @80ms, mock)         1269.4ms
+local synthesize (6 phrases, fr_24l)       97258ms (RTF 0.49x)
+
+=== summary (JSON) ===
+{
+ "wavEncode30s": 3.9902950000000033,
+ "wavDecode30s": 2.341106999999994,
+ "wavDecodeStereo30s": 1.9654039999999782,
+ "decoder4096": 3.63190000000003,
+ "decoder65536": 1.9221000000000004,
+ "resample44to24": 0.5632600000000139,
+ "bundleDownload": 1269.379476,
+ "localE2EWall": 97258.449781,
+ "localE2ERtf": 0.4932219268147457
+}

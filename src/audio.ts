@@ -26,25 +26,27 @@ export const SAMPLE_RATE = 24000;
  */
 export function pcmToWav(pcm: Float32Array, sampleRate = SAMPLE_RATE): Buffer {
 	const dataSize = pcm.length * 2;
-	const buffer = Buffer.alloc(44 + dataSize);
-	buffer.write("RIFF", 0);
-	buffer.writeUInt32LE(36 + dataSize, 4);
-	buffer.write("WAVE", 8);
-	buffer.write("fmt ", 12);
-	buffer.writeUInt32LE(16, 16); // PCM chunk size
-	buffer.writeUInt16LE(1, 20); // format: PCM
-	buffer.writeUInt16LE(1, 22); // channels: mono
-	buffer.writeUInt32LE(sampleRate, 24);
-	buffer.writeUInt32LE(sampleRate * 2, 28); // byte rate
-	buffer.writeUInt16LE(2, 32); // block align
-	buffer.writeUInt16LE(16, 34); // bits per sample
-	buffer.write("data", 36);
-	buffer.writeUInt32LE(dataSize, 40);
+	const ab = new ArrayBuffer(44 + dataSize);
+	const header = Buffer.from(ab, 0, 44);
+	header.write("RIFF", 0);
+	header.writeUInt32LE(36 + dataSize, 4);
+	header.write("WAVE", 8);
+	header.write("fmt ", 12);
+	header.writeUInt32LE(16, 16); // PCM chunk size
+	header.writeUInt16LE(1, 20); // format: PCM
+	header.writeUInt16LE(1, 22); // channels: mono
+	header.writeUInt32LE(sampleRate, 24);
+	header.writeUInt32LE(sampleRate * 2, 28); // byte rate
+	header.writeUInt16LE(2, 32); // block align
+	header.writeUInt16LE(16, 34); // bits per sample
+	header.write("data", 36);
+	header.writeUInt32LE(dataSize, 40);
+	const out = new Int16Array(ab, 44, pcm.length);
 	for (let i = 0; i < pcm.length; i++) {
 		const s = Math.max(-1, Math.min(1, pcm[i] as number));
-		buffer.writeInt16LE(Math.round(s * 32767), 44 + i * 2);
+		out[i] = Math.round(s * 32767);
 	}
-	return buffer;
+	return Buffer.from(ab);
 }
 
 /**
@@ -70,10 +72,16 @@ export class WavStreamDecoder {
 	 * @returns {Float32Array} Decoded samples (empty until the header is consumed).
 	 */
 	push(chunk: Uint8Array): Float32Array {
-		const merged = new Uint8Array(this.#buffer.length + chunk.length);
-		merged.set(this.#buffer, 0);
-		merged.set(chunk, this.#buffer.length);
-		this.#buffer = merged;
+		// Common case: no leftover from the previous push — decode the
+		// chunk in place, no merge copy.
+		if (this.#buffer.length === 0) {
+			this.#buffer = chunk;
+		} else {
+			const merged = new Uint8Array(this.#buffer.length + chunk.length);
+			merged.set(this.#buffer, 0);
+			merged.set(chunk, this.#buffer.length);
+			this.#buffer = merged;
+		}
 
 		if (!this.#headerDone) {
 			// Walk RIFF chunks until we find "data" (the canonical WAV
@@ -268,6 +276,33 @@ export function wavToPcm(wav: Buffer): {
 			frames,
 		);
 		return { pcm: int16ToFloat32(samples), sampleRate };
+	}
+	// Bulk-read multichannel via Int16Array when aligned; per-sample
+	// fallback on odd offsets. Stereo (the common case) gets a flat loop.
+	if ((wav.byteOffset + dataOffset) % 2 === 0) {
+		const src = new Int16Array(
+			wav.buffer,
+			wav.byteOffset + dataOffset,
+			frames * channels,
+		);
+		const pcm = new Float32Array(frames);
+		if (channels === 2) {
+			const scale = 1 / (32768 * 2);
+			for (let f = 0, i = 0; f < frames; f++, i += 2) {
+				pcm[f] = ((src[i] as number) + (src[i + 1] as number)) * scale;
+			}
+		} else {
+			const scale = 1 / (32768 * channels);
+			for (let f = 0; f < frames; f++) {
+				let sum = 0;
+				const base = f * channels;
+				for (let c = 0; c < channels; c++) {
+					sum += src[base + c] as number;
+				}
+				pcm[f] = sum * scale;
+			}
+		}
+		return { pcm, sampleRate };
 	}
 	const pcm = new Float32Array(frames);
 	for (let f = 0; f < frames; f++) {

@@ -13,6 +13,8 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { pathToFileURL } from "node:url";
 import { BundleDownloadError } from "../errors.js";
 import type { LocalLanguage } from "../types.js";
@@ -76,6 +78,11 @@ export function assertLocalLanguage(
 }
 
 /** Downloads one file atomically (temp file + rename), skipping existing. */
+/**
+ * Downloads one file atomically (temp file + rename), skipping existing.
+ * Streams to disk instead of buffering the whole response in memory
+ * (bundles reach 300+ MB).
+ */
 async function downloadFile(
 	url: string,
 	dest: string,
@@ -91,8 +98,15 @@ async function downloadFile(
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status} for ${url}`);
 		}
-		const bytes = new Uint8Array(await response.arrayBuffer());
-		fs.writeFileSync(tmp, bytes);
+		if (!response.body) {
+			throw new Error(`empty response body for ${url}`);
+		}
+		await pipeline(
+			Readable.fromWeb(
+				response.body as import("node:stream/web").ReadableStream,
+			),
+			fs.createWriteStream(tmp),
+		);
 		fs.renameSync(tmp, dest);
 	} catch (error) {
 		try {
@@ -143,14 +157,20 @@ export async function ensureBundle(
 	fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<BundlePaths> {
 	const dir = path.join(cacheDir, "bundles", language);
+	// sentencepiece.js is independent of the bundle files — download it
+	// in the same wave.
+	const spPath = path.join(cacheDir, "sentencepiece.js");
 	try {
-		for (const file of BUNDLE_FILES) {
-			await downloadFile(
-				`${BUNDLE_BASE}/${language}/${file}`,
-				path.join(dir, file),
-				fetchImpl,
-			);
-		}
+		await Promise.all([
+			...BUNDLE_FILES.map((file) =>
+				downloadFile(
+					`${BUNDLE_BASE}/${language}/${file}`,
+					path.join(dir, file),
+					fetchImpl,
+				),
+			),
+			downloadFile(SENTENCEPIECE_URL, spPath, fetchImpl),
+		]);
 	} catch (error) {
 		throw new BundleDownloadError(language, (error as Error).message, {
 			cause: error,
@@ -158,16 +178,7 @@ export async function ensureBundle(
 	}
 
 	// SentencePiece runtime: shared, downloaded once per cache dir.
-	const spPath = path.join(cacheDir, "sentencepiece.js");
-	try {
-		await downloadFile(SENTENCEPIECE_URL, spPath, fetchImpl);
-	} catch (error) {
-		throw new BundleDownloadError(
-			language,
-			`sentencepiece runtime: ${(error as Error).message}`,
-			{ cause: error },
-		);
-	}
+	// (already fetched in the parallel wave above)
 
 	let metadata: Record<string, unknown>;
 	try {
