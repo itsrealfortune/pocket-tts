@@ -164,3 +164,18 @@ Zero-shot, no training: reference audio → Mimi encoder → speaker embedding �
 - `sentencepiece.js` runtime: from the [reference web demo](https://huggingface.co/spaces/KevinAHM/pocket-tts-web), downloaded at runtime into the cache dir
 
 Cloud mode sends your text to Kyutai's API; use local mode for privacy-sensitive content.
+
+## Demo (real-time server)
+
+A Hono-based demo server with a browser UI lives in `demo/` — audio is
+streamed as binary PCM and played gaplessly via an AudioWorklet while it
+is still being generated:
+
+```bash
+npm run demo                                   # cloud mode only
+POCKET_VOICE=./my-voice.wav npm run demo       # + local cloning engine
+```
+
+Then open <http://localhost:3000>. Endpoints: `POST /api/tts/stream`
+(chunked PCM16LE @24kHz), `POST /api/tts/wav`, `GET /api/config`,
+`POST /api/local/prepare`. Measured TTFB: ~78 ms (cloud).
