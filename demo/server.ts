@@ -24,6 +24,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import {
 	listCloudLanguages,
@@ -35,6 +36,14 @@ import {
 
 const PORT = Number(process.env.PORT ?? 3000);
 const LOCAL_VOICE = process.env.POCKET_VOICE;
+if (LOCAL_VOICE && !fs.existsSync(path.resolve(LOCAL_VOICE))) {
+	console.error(
+		`POCKET_VOICE file not found: ${path.resolve(LOCAL_VOICE)}\n` +
+			`Use an absolute path or a path relative to the project root, e.g.\n` +
+			`  POCKET_VOICE=$HOME/tts-universal/voices/fortune-ref-24k.wav npm run demo`,
+	);
+	process.exit(1);
+}
 const LOCAL_LANG = (process.env.POCKET_LANG ?? "french_24l") as Parameters<
 	typeof PocketTTS.load
 >[0] extends { language?: infer L } ? L : never;
