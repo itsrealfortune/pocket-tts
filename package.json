@@ -1,6 +1,6 @@
 {
 	"name": "pocket-tts",
-	"version": "0.1.1",
+	"version": "1.0.0",
 	"license": "MIT",
 	"description": "Streaming Pocket TTS for Node.js — cloud mode (Kyutai API, 24 built-in voices) and local mode (ONNX runtime with zero-shot voice cloning).",
 	"repository": {
@@ -54,6 +54,8 @@
 		"lint:write": "bunx --bun @biomejs/biome lint --write ./src",
 		"test": "bun test src",
 		"build": "tsc --project tsconfig.build.json",
+		"generate-doc": "bunx typedoc",
+		"publish-doc": "bun generate-doc && git add docs typedoc.json && git commit -m 'docs: update TypeDoc' && git push && bunx gh-pages -d docs",
 		"deploy:npm": "npm publish --access public",
 		"publish-package": "bash ./scripts/publish-package.sh"
 	},
@@ -68,8 +70,9 @@
 		"hono": "^4.11.0",
 		"jiti": "^2.6.1",
 		"onnxruntime-node": "^1.30.0",
-		"tsx": "^4.20.0",
 		"tsup": "^8.5.1",
+		"tsx": "^4.20.0",
+		"typedoc": "^0.28.20",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.58.2"
 	},

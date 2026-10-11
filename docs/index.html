@@ -1,0 +1,279 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="./"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>pocket-tts - v0.1.1</title><meta name="description" content="Documentation for pocket-tts"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script defer src="assets/main.js"></script><script async src="assets/icons.js" id="tsd-icons-script"></script><script async src="assets/search.js" id="tsd-search-script"></script><script async src="assets/navigation.js" id="tsd-nav-script"></script><script async src="assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="index.html" class="title">pocket-tts - v0.1.1</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<h1>pocket-tts - v0.1.1</h1></div>
+<div class="tsd-panel tsd-typography"><h1 id="pocket-tts" class="tsd-anchor-link">pocket-tts<a href="#pocket-tts" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h1>
+<p>Streaming <a href="https://kyutai.org/blog/2026-01-13-pocket-tts/">Pocket TTS</a> for Node.js — Kyutai's 100M-parameter TTS with <strong>zero-shot voice cloning</strong>, in two modes:</p>
+<ul>
+<li><strong>cloud</strong> — the Kyutai API: 24 built-in voices, 7 languages, audio streamed from the first byte (~60 ms TTFB). No cloning (the API has no upload endpoint).</li>
+<li><strong>local</strong> — the community ONNX export: offline, <strong>clone any voice from 1–30 s of reference audio</strong> (no training, ~3–8 s one-shot on a laptop CPU), 10 language bundles.</li>
+</ul>
+<p>Both modes share one interface: <code>stream()</code> yields audio chunks as they're produced, <code>synthesize()</code> returns a complete WAV.</p>
+<h2 id="install" class="tsd-anchor-link">Install<a href="#install" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<pre><code class="bash"><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">install</span><span class="hl-1"> </span><span class="hl-2">pocket-tts</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Node.js ≥ 18.17 (cloud mode uses the global <code>fetch</code>). Local mode additionally needs <a href="https://www.npmjs.com/package/onnxruntime-node"><code>onnxruntime-node</code></a> (installed automatically as an optional peer):</p>
+<pre><code class="bash"><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">install</span><span class="hl-1"> </span><span class="hl-2">onnxruntime-node</span><span class="hl-1">   </span><span class="hl-3"># local mode only</span>
+</code><button type="button">Copy</button></pre>
+
+<h2 id="quick-start" class="tsd-anchor-link">Quick start<a href="#quick-start" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<h3 id="cloud-mode-built-in-voices-streaming" class="tsd-anchor-link">Cloud mode (built-in voices, streaming)<a href="#cloud-mode-built-in-voices-streaming" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<pre><code class="ts"><span class="hl-4">import</span><span class="hl-1"> { </span><span class="hl-5">PocketTTS</span><span class="hl-1"> } </span><span class="hl-4">from</span><span class="hl-1"> </span><span class="hl-2">&quot;pocket-tts&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">tts</span><span class="hl-1"> = </span><span class="hl-4">await</span><span class="hl-1"> </span><span class="hl-5">PocketTTS</span><span class="hl-1">.</span><span class="hl-0">load</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-5">mode:</span><span class="hl-1"> </span><span class="hl-2">&quot;cloud&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-5">language:</span><span class="hl-1"> </span><span class="hl-2">&quot;french&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-5">voice:</span><span class="hl-1"> </span><span class="hl-2">&quot;estelle&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-3">// Streamed: chunks arrive while the audio is still being generated</span><br/><span class="hl-4">for</span><span class="hl-1"> </span><span class="hl-4">await</span><span class="hl-1"> (</span><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">chunk</span><span class="hl-1"> </span><span class="hl-6">of</span><span class="hl-1"> </span><span class="hl-5">tts</span><span class="hl-1">.</span><span class="hl-0">stream</span><span class="hl-1">(</span><span class="hl-2">&quot;Bonjour tout le monde.&quot;</span><span class="hl-1">)) {</span><br/><span class="hl-1">  </span><span class="hl-5">player</span><span class="hl-1">.</span><span class="hl-0">enqueue</span><span class="hl-1">(</span><span class="hl-5">chunk</span><span class="hl-1">.</span><span class="hl-5">pcm</span><span class="hl-1">); </span><span class="hl-3">// Float32Array @ 24 kHz</span><br/><span class="hl-1">}</span><br/><span class="hl-5">tts</span><span class="hl-1">.</span><span class="hl-0">close</span><span class="hl-1">();</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="local-mode-zero-shot-voice-cloning" class="tsd-anchor-link">Local mode (zero-shot voice cloning)<a href="#local-mode-zero-shot-voice-cloning" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<pre><code class="ts"><span class="hl-4">import</span><span class="hl-1"> { </span><span class="hl-5">PocketTTS</span><span class="hl-1"> } </span><span class="hl-4">from</span><span class="hl-1"> </span><span class="hl-2">&quot;pocket-tts&quot;</span><span class="hl-1">;</span><br/><span class="hl-4">import</span><span class="hl-1"> </span><span class="hl-6">*</span><span class="hl-1"> </span><span class="hl-4">as</span><span class="hl-1"> </span><span class="hl-5">fs</span><span class="hl-1"> </span><span class="hl-4">from</span><span class="hl-1"> </span><span class="hl-2">&quot;node:fs&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">tts</span><span class="hl-1"> = </span><span class="hl-4">await</span><span class="hl-1"> </span><span class="hl-5">PocketTTS</span><span class="hl-1">.</span><span class="hl-0">load</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-5">mode:</span><span class="hl-1"> </span><span class="hl-2">&quot;local&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-5">language:</span><span class="hl-1"> </span><span class="hl-2">&quot;french_24l&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-5">voice:</span><span class="hl-1"> </span><span class="hl-2">&quot;./my-voice.wav&quot;</span><span class="hl-1">, </span><span class="hl-3">// any clean WAV — cloned without training</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">result</span><span class="hl-1"> = </span><span class="hl-4">await</span><span class="hl-1"> </span><span class="hl-5">tts</span><span class="hl-1">.</span><span class="hl-0">synthesize</span><span class="hl-1">(</span><span class="hl-2">&quot;Cette phrase sort de ma voix clonée.&quot;</span><span class="hl-1">);</span><br/><span class="hl-4">await</span><span class="hl-1"> </span><span class="hl-5">fs</span><span class="hl-1">.</span><span class="hl-0">writeFile</span><span class="hl-1">(</span><span class="hl-2">&quot;cloned.wav&quot;</span><span class="hl-1">, </span><span class="hl-5">result</span><span class="hl-1">.</span><span class="hl-5">wav</span><span class="hl-1">);</span><br/><span class="hl-5">tts</span><span class="hl-1">.</span><span class="hl-0">close</span><span class="hl-1">();</span>
+</code><button type="button">Copy</button></pre>
+
+<p>The model bundle (~90–360 MB) is downloaded once into the cache directory on first use, then reused.</p>
+<h2 id="voices" class="tsd-anchor-link">Voices<a href="#voices" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Cloud mode accepts <strong>only</strong> the 24 built-in voices (the API has no cloning endpoint):</p>
+<pre><code class="ts"><span class="hl-4">import</span><span class="hl-1"> { </span><span class="hl-5">listCloudVoices</span><span class="hl-1"> } </span><span class="hl-4">from</span><span class="hl-1"> </span><span class="hl-2">&quot;pocket-tts&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-4">for</span><span class="hl-1"> (</span><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">voice</span><span class="hl-1"> </span><span class="hl-6">of</span><span class="hl-1"> </span><span class="hl-0">listCloudVoices</span><span class="hl-1">()) {</span><br/><span class="hl-1">  </span><span class="hl-5">console</span><span class="hl-1">.</span><span class="hl-0">log</span><span class="hl-1">(</span><span class="hl-2">`</span><span class="hl-6">${</span><span class="hl-5">voice</span><span class="hl-8">.</span><span class="hl-5">id</span><span class="hl-6">}</span><span class="hl-2">: </span><span class="hl-6">${</span><span class="hl-5">voice</span><span class="hl-8">.</span><span class="hl-5">name</span><span class="hl-6">}</span><span class="hl-2"> (</span><span class="hl-6">${</span><span class="hl-5">voice</span><span class="hl-8">.</span><span class="hl-5">gender</span><span class="hl-6">}</span><span class="hl-2">, </span><span class="hl-6">${</span><span class="hl-5">voice</span><span class="hl-8">.</span><span class="hl-5">style</span><span class="hl-6">}</span><span class="hl-2">)`</span><span class="hl-1">);</span><br/><span class="hl-1">}</span><br/><span class="hl-3">// jane: Jane (female, conversation)</span><br/><span class="hl-3">// estelle: Estelle (female, conversation)  ← French</span><br/><span class="hl-3">// …24 total</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Languages: <code>english</code>, <code>french</code>, <code>german</code>, <code>spanish</code>, <code>portuguese</code>, <code>italian</code>, <code>dutch</code>. Voices are language-agnostic — <code>estelle</code> works with the English model too (the voice provides the timbre, the language the model).</p>
+<p>Requesting a clone (<code>./voice.wav</code>, a URL, …) in cloud mode throws <code>CloudModeCloningError</code> — cloning requires local mode.</p>
+<h2 id="local-bundles" class="tsd-anchor-link">Local bundles<a href="#local-bundles" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<pre><code class="ts"><span class="hl-4">import</span><span class="hl-1"> { </span><span class="hl-5">listLocalLanguages</span><span class="hl-1"> } </span><span class="hl-4">from</span><span class="hl-1"> </span><span class="hl-2">&quot;pocket-tts&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-5">console</span><span class="hl-1">.</span><span class="hl-0">log</span><span class="hl-1">(</span><span class="hl-0">listLocalLanguages</span><span class="hl-1">());</span><br/><span class="hl-3">// english_2026-04 (distilled), french_24l (24-layer), german, german_24l, …</span>
+</code><button type="button">Copy</button></pre>
+
+<p>The <code>*_24l</code> bundles are the larger non-distilled preview models (higher quality, slower); plain names are the 6-layer distilled models that reach real time on modern laptops. Measured on an i5-7500 (2017 desktop CPU): English 6-layer ≈ 0.8× real time, French 24-layer ≈ 0.5×. On a recent laptop CPU or with a GPU both are comfortably faster.</p>
+<h2 id="api" class="tsd-anchor-link">API<a href="#api" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<h3 id="_" class="tsd-anchor-link"><code>PocketTTS.load(options)</code><a href="#_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Mode</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>both</td>
+<td><code>&quot;cloud&quot; | &quot;local&quot;</code></td>
+<td>required</td>
+<td>Runtime selection</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>cloud</td>
+<td><code>CloudLanguage</code></td>
+<td><code>&quot;english&quot;</code></td>
+<td>7 languages</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>local</td>
+<td><code>LocalLanguage</code></td>
+<td><code>&quot;english_2026-04&quot;</code></td>
+<td>10 bundles</td>
+</tr>
+<tr>
+<td><code>voice</code></td>
+<td>cloud</td>
+<td><code>string</code></td>
+<td>language default</td>
+<td>Built-in voice id only</td>
+</tr>
+<tr>
+<td><code>voice</code></td>
+<td>local</td>
+<td><code>string | Float32Array | { pcm, sampleRate }</code></td>
+<td>required</td>
+<td>WAV path or raw samples to clone</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>cloud</td>
+<td><code>string</code></td>
+<td>Kyutai demo API</td>
+<td>Point at your own <code>pocket-tts serve</code></td>
+</tr>
+<tr>
+<td><code>timeoutMs</code></td>
+<td>cloud</td>
+<td><code>number</code></td>
+<td><code>120000</code></td>
+<td>Overall request timeout</td>
+</tr>
+<tr>
+<td><code>cacheDir</code></td>
+<td>local</td>
+<td><code>string</code></td>
+<td>platform cache dir</td>
+<td>Bundle download cache</td>
+</tr>
+<tr>
+<td><code>numThreads</code></td>
+<td>local</td>
+<td><code>number</code></td>
+<td>ORT default</td>
+<td>Intra-op threads</td>
+</tr>
+<tr>
+<td><code>lowMemory</code></td>
+<td>local</td>
+<td><code>boolean</code></td>
+<td><code>false</code></td>
+<td>Disables ORT memory arena (lower peak RAM, small speed loss)</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>local</td>
+<td><code>number</code></td>
+<td><code>0.7</code></td>
+<td>Lower = more stable</td>
+</tr>
+<tr>
+<td><code>lsdSteps</code></td>
+<td>local</td>
+<td><code>number</code></td>
+<td><code>1</code></td>
+<td>Flow sampler steps; <code>5</code> + <code>temperature: 0.5</code> = highest quality</td>
+</tr>
+<tr>
+<td><code>fetchImpl</code></td>
+<td>both</td>
+<td><code>typeof fetch</code></td>
+<td>global fetch</td>
+<td>Tests, proxies, mirrors</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_-1" class="tsd-anchor-link"><code>tts.stream(text)</code><a href="#_-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Async generator of <code>AudioChunk { pcm: Float32Array, sampleRate, isFirst, isLast }</code> at 24 kHz. Cloud mode streams from the HTTP response (TTFB ~60 ms on the public API); local mode emits the first chunk after ~240 ms of generated audio (3 frames), then every ~960 ms.</p>
+<h3 id="_-2" class="tsd-anchor-link"><code>tts.synthesize(text)</code><a href="#_-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Returns <code>SynthesisResult { wav: Buffer, pcm: Float32Array, sampleRate, durationSec, mode, language }</code>. On cloud mode the WAV is what the server streamed; on local mode it's assembled from the decoded chunks.</p>
+<h3 id="_-3" class="tsd-anchor-link"><code>tts.close()</code><a href="#_-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Aborts in-flight work and releases ONNX sessions. Idempotent.</p>
+<h3 id="errors" class="tsd-anchor-link">Errors<a href="#errors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Every error extends <code>PocketTTSError</code> with a stable <code>code</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Code</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CloudModeCloningError</code></td>
+<td><code>CLOUD_MODE_NO_CLONING</code></td>
+<td>Cloning requested in cloud mode</td>
+</tr>
+<tr>
+<td><code>UnknownVoiceError</code></td>
+<td><code>UNKNOWN_VOICE</code></td>
+<td>Cloud voice id not in the catalog (<code>error.available</code> lists them)</td>
+</tr>
+<tr>
+<td><code>UnknownLanguageError</code></td>
+<td><code>UNKNOWN_LANGUAGE</code></td>
+<td>Invalid language code</td>
+</tr>
+<tr>
+<td><code>BundleDownloadError</code></td>
+<td><code>BUNDLE_DOWNLOAD_FAILED</code></td>
+<td>Local bundle download failed</td>
+</tr>
+<tr>
+<td><code>AudioDecodeError</code></td>
+<td><code>AUDIO_DECODE_FAILED</code></td>
+<td>Reference audio undecodable</td>
+</tr>
+<tr>
+<td><code>RequestFailedError</code></td>
+<td><code>REQUEST_FAILED</code></td>
+<td>Cloud HTTP/network/timeout failure (<code>error.status</code>)</td>
+</tr>
+<tr>
+<td><code>InvalidOptionError</code></td>
+<td><code>INVALID_OPTION</code></td>
+<td>Inconsistent options (e.g. no voice prepared)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="self-hosting-the-cloud-mode" class="tsd-anchor-link">Self-hosting the cloud mode<a href="#self-hosting-the-cloud-mode" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>The default endpoint is Kyutai's public demo API (no SLA — be reasonable). To self-host, run the official server and point the client at it:</p>
+<pre><code class="bash"><span class="hl-0">uvx</span><span class="hl-1"> </span><span class="hl-2">pocket-tts</span><span class="hl-1"> </span><span class="hl-2">serve</span><span class="hl-1"> </span><span class="hl-6">--language</span><span class="hl-1"> </span><span class="hl-2">french</span><span class="hl-1"> </span><span class="hl-6">--default-voice</span><span class="hl-1"> </span><span class="hl-2">./my-voice.wav</span>
+</code><button type="button">Copy</button></pre>
+
+<pre><code class="ts"><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">tts</span><span class="hl-1"> = </span><span class="hl-4">await</span><span class="hl-1"> </span><span class="hl-5">PocketTTS</span><span class="hl-1">.</span><span class="hl-0">load</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-5">mode:</span><span class="hl-1"> </span><span class="hl-2">&quot;cloud&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-5">endpoint:</span><span class="hl-1"> </span><span class="hl-2">&quot;http://localhost:8000&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-3">// voice: whatever your server exposes</span><br/><span class="hl-1">});</span>
+</code><button type="button">Copy</button></pre>
+
+<p>The client targets the <code>POST /{language}/tts</code> multipart shape (<code>text</code> + <code>voice_url</code>) used by the Kyutai deployment. Community OpenAI-compatible servers (<code>/v1/audio/speech</code>) speak a different protocol and are not directly compatible.</p>
+<h2 id="how-cloning-works-local-mode" class="tsd-anchor-link">How cloning works (local mode)<a href="#how-cloning-works-local-mode" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Zero-shot, no training: reference audio → Mimi encoder → speaker embedding → one prefill pass conditions the flow-LM's KV caches. The prepared state is cached for the instance, so cloning cost (~3–8 s on a laptop CPU, dominated by encoding the reference) is paid once; switching voices re-runs the prefill only.</p>
+<h2 id="licenses" class="tsd-anchor-link">Licenses<a href="#licenses" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<ul>
+<li>Module code: MIT</li>
+<li><a href="https://huggingface.co/kyutai/pocket-tts">Pocket TTS models</a>: CC-BY-4.0 (Kyutai, MIT-licensed code)</li>
+<li><a href="https://huggingface.co/KevinAHM/pocket-tts-onnx">ONNX export</a>: Apache-2.0 (KevinAHM)</li>
+<li><code>sentencepiece.js</code> runtime: from the <a href="https://huggingface.co/spaces/KevinAHM/pocket-tts-web">reference web demo</a>, downloaded at runtime into the cache dir</li>
+</ul>
+<p>Cloud mode sends your text to Kyutai's API; use local mode for privacy-sensitive content.</p>
+<h2 id="demo-real-time-server" class="tsd-anchor-link">Demo (real-time server)<a href="#demo-real-time-server" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>A Hono-based demo server with a browser UI lives in <code>demo/</code> — audio is
+streamed as binary PCM and played gaplessly via an AudioWorklet while it
+is still being generated:</p>
+<pre><code class="bash"><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">run</span><span class="hl-1"> </span><span class="hl-2">demo</span><span class="hl-1">                                   </span><span class="hl-3"># cloud mode only</span><br/><span class="hl-5">POCKET_VOICE</span><span class="hl-1">=</span><span class="hl-2">./my-voice.wav</span><span class="hl-1"> </span><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">run</span><span class="hl-1"> </span><span class="hl-2">demo</span><span class="hl-1">       </span><span class="hl-3"># + local cloning engine</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Then open <a href="http://localhost:3000">http://localhost:3000</a>. Endpoints: <code>POST /api/tts/stream</code>
+(chunked PCM16LE @24kHz), <code>POST /api/tts/wav</code>, <code>GET /api/config</code>,
+<code>POST /api/local/prepare</code>. Measured TTFB: ~78 ms (cloud).</p>
+</div></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details"><a href="#pocket-tts"><span>pocket-<wbr/>tts</span></a>
+<ul>
+<li><a href="#install"><span>Install</span></a></li>
+<li><a href="#quick-start"><span>Quick start</span></a></li>
+<li>
+<ul>
+<li><a href="#cloud-mode-built-in-voices-streaming"><span>Cloud mode (built-<wbr/>in voices, streaming)</span></a></li>
+<li><a href="#local-mode-zero-shot-voice-cloning"><span>Local mode (zero-<wbr/>shot voice cloning)</span></a></li></ul></li>
+<li><a href="#voices"><span>Voices</span></a></li>
+<li><a href="#local-bundles"><span>Local bundles</span></a></li>
+<li><a href="#api"><span>API</span></a></li>
+<li>
+<ul>
+<li><a href="#_"><span></span></a></li>
+<li><a href="#_-1"><span></span></a></li>
+<li><a href="#_-2"><span></span></a></li>
+<li><a href="#_-3"><span></span></a></li>
+<li><a href="#errors"><span>Errors</span></a></li></ul></li>
+<li><a href="#self-hosting-the-cloud-mode"><span>Self-<wbr/>hosting the cloud mode</span></a></li>
+<li><a href="#how-cloning-works-local-mode"><span>How cloning works (local mode)</span></a></li>
+<li><a href="#licenses"><span>Licenses</span></a></li>
+<li><a href="#demo-real-time-server"><span>Demo (real-<wbr/>time server)</span></a></li></ul></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="modules.html">pocket-tts - v0.1.1</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

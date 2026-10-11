@@ -121,6 +121,17 @@ export interface CloudTtsOptions {
 	fetchImpl?: typeof fetch;
 }
 
+/**
+ * Raw PCM voice reference for local-mode cloning: float32 samples plus
+ * their sample rate (any rate — resampled to 24 kHz internally).
+ */
+export interface PcmReference {
+	/** Mono float32 samples in `[-1, 1]`. */
+	pcm: Float32Array;
+	/** Sample rate of `pcm` in Hz. */
+	sampleRate: number;
+}
+
 /** Options for {@link PocketTTS.load} in local mode. */
 export interface LocalTtsOptions {
 	/** Use the local ONNX runtime (zero-shot voice cloning, offline). */
@@ -133,10 +144,10 @@ export interface LocalTtsOptions {
 	/**
 	 * Voice reference for cloning. Accept a path to a WAV file, raw
 	 * float32 samples (mono, any sample rate — resampled to 24 kHz), or
-	 * a `{ pcm, sampleRate }` pair. 1–30 seconds of clean speech works
+	 * a {@link PcmReference} pair. 1–30 seconds of clean speech works
 	 * best; the reference is encoded once and cached for the session.
 	 */
-	voice: string | Float32Array | { pcm: Float32Array; sampleRate: number };
+	voice: string | Float32Array | PcmReference;
 	/**
 	 * Cache directory for downloaded bundles and the tokenizer runtime.
 	 * Default: `$XDG_CACHE_HOME/pocket-tts` (Linux),

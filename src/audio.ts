@@ -227,18 +227,23 @@ export function int16ToFloat32(samples: Int16Array): Float32Array {
 	return out;
 }
 
+/** Decoded mono PCM audio plus its sample rate. */
+export interface DecodedPcm {
+	/** Mono float32 samples in `[-1, 1]` (stereo is downmixed). */
+	pcm: Float32Array;
+	/** Sample rate of the decoded audio. */
+	sampleRate: number;
+}
+
 /**
  * Decodes a WAV buffer (16-bit PCM, mono or stereo) to mono float32.
  * Stereo input is downmixed by averaging channels.
  *
  * @param {Buffer} wav - Complete RIFF/WAVE file (16-bit PCM).
- * @returns {{ pcm: Float32Array; sampleRate: number }} Decoded audio.
+ * @returns {DecodedPcm} Decoded audio.
  * @throws {AudioDecodeError} When the buffer is not a supported WAV file.
  */
-export function wavToPcm(wav: Buffer): {
-	pcm: Float32Array;
-	sampleRate: number;
-} {
+export function wavToPcm(wav: Buffer): DecodedPcm {
 	if (wav.length < 44 || wav.toString("ascii", 0, 4) !== "RIFF") {
 		throw new AudioDecodeError("<buffer>", "not a RIFF/WAVE buffer");
 	}

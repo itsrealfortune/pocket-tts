@@ -21,6 +21,7 @@ import { AudioDecodeError, InvalidOptionError } from "../errors.js";
 import type {
 	AudioChunk,
 	LocalTtsOptions,
+	PcmReference,
 	PocketTTSInstance,
 	SynthesisResult,
 } from "../types.js";
@@ -65,10 +66,18 @@ interface StateEntry {
 	shape: number[];
 }
 
+/** Raw speaker embedding extracted from reference audio. */
+export interface SpeakerEmbedding {
+	/** Embedding samples (frames × conditioning dim). */
+	data: Float32Array;
+	/** Tensor shape, e.g. `[1, frames, 1024]`. */
+	shape: number[];
+}
+
 /** Reference voice prepared for synthesis (cached conditioned state). */
 export interface PreparedVoice {
 	/** The speaker embedding produced by the Mimi encoder. */
-	embedding: { data: Float32Array; shape: number[] };
+	embedding: SpeakerEmbedding;
 	/** Latency of the encode + prefill, in milliseconds. */
 	prepMs: number;
 }
@@ -228,7 +237,7 @@ export class LocalPocketTTS implements PocketTTSInstance {
 		removeSemicolons: boolean;
 		framesAfterEos: number;
 	};
-	readonly #bosBeforeVoice: { data: Float32Array; shape: number[] } | null;
+	readonly #bosBeforeVoice: SpeakerEmbedding | null = null;
 	readonly #temperature: number;
 	readonly #lsdSteps: number;
 	#voiceState: Record<string, OrtTensor> | null = null;
@@ -338,10 +347,10 @@ export class LocalPocketTTS implements PocketTTSInstance {
 	 * Encodes reference audio into a speaker embedding (zero-shot cloning).
 	 *
 	 * Accepts a WAV file path, raw float32 samples at any rate (resampled
-	 * to 24 kHz), or a `{ pcm, sampleRate }` pair. 1-30 s of clean speech
+	 * to 24 kHz), or a {@link PcmReference} pair. 1-30 s of clean speech
 	 * works best. The result can be reused across many synthesize calls.
 	 *
-	 * @param {string | Float32Array | { pcm: Float32Array; sampleRate: number }} voice - Voice reference source.
+	 * @param {string | Float32Array | PcmReference} voice - Voice reference source.
 	 * @returns {Promise<PreparedVoice>} The embedding plus preparation timing.
 	 * @throws {AudioDecodeError} When the reference cannot be decoded.
 	 * @example
@@ -351,7 +360,7 @@ export class LocalPocketTTS implements PocketTTSInstance {
 	 * ```
 	 */
 	async prepareVoice(
-		voice: string | Float32Array | { pcm: Float32Array; sampleRate: number },
+		voice: string | Float32Array | PcmReference,
 	): Promise<PreparedVoice> {
 		const start = performance.now();
 		let pcm: Float32Array;

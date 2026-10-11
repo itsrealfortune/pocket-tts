@@ -95,7 +95,8 @@ export {
 	UnknownVoiceError,
 } from "./errors.js";
 export { defaultCacheDir } from "./local/bundle.js";
-export type { PreparedVoice } from "./local/runtime.js";
+export type { BundlePaths, SentencePieceLike } from "./local/bundle.js";
+export type { PreparedVoice, SpeakerEmbedding } from "./local/runtime.js";
 export { CloudPocketTTS } from "./cloud.js";
 export { LocalPocketTTS } from "./local/runtime.js";
 export {
@@ -111,6 +112,7 @@ export {
 	voiceIdFromDisplayName,
 } from "./voices.js";
 export { pcmToWav, resamplePcm, SAMPLE_RATE, wavToPcm } from "./audio.js";
+export type { DecodedPcm } from "./audio.js";
 export type {
 	AudioChunk,
 	CloudLanguage,
@@ -119,6 +121,7 @@ export type {
 	LocalLanguage,
 	LocalLanguageInfo,
 	LocalTtsOptions,
+	PcmReference,
 	PocketTTSInstance,
 	PocketTTSOptions,
 	SynthesisResult,

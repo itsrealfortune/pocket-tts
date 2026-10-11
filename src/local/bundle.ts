@@ -9,7 +9,6 @@
  * directory and shared across languages.
  */
 
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -45,8 +44,11 @@ const BUNDLE_FILES = [
  * (`sentencepiece.js` from the reference demo).
  */
 export interface SentencePieceLike {
+	/** Loads a SentencePiece model from a base64-encoded protobuf. */
 	loadFromB64StringModel(b64model: string): Promise<unknown>;
+	/** Encodes text into a token-id sequence. */
 	encodeIds(text: string): number[];
+	/** Decodes a token-id sequence back into text. */
 	decodeIds(ids: number[]): string;
 }
 
@@ -63,18 +65,6 @@ export function defaultCacheDir(): string {
 	}
 	const base = process.env.XDG_CACHE_HOME ?? path.join(home, ".cache");
 	return path.join(base, "pocket-tts");
-}
-
-/** Resolves and validates a local language id. */
-export function assertLocalLanguage(
-	language: string,
-): asserts language is LocalLanguage {
-	if (!LOCAL_LANGUAGES.some((l) => l.id === language)) {
-		throw new BundleDownloadError(
-			language,
-			`unknown bundle (available: ${LOCAL_LANGUAGES.map((l) => l.id).join(", ")})`,
-		);
-	}
 }
 
 /** Downloads one file atomically (temp file + rename), skipping existing. */
@@ -118,7 +108,7 @@ async function downloadFile(
 	}
 }
 
-/** Result of {@link ensureBundle}: resolved paths of every bundle file. */
+/** Resolved paths of every file in a downloaded bundle. */
 export interface BundlePaths {
 	/** Directory containing the bundle. */
 	dir: string;
@@ -226,15 +216,4 @@ async function loadSentencePiece(
 	const modelB64 = fs.readFileSync(modelPath).toString("base64");
 	await sp.loadFromB64StringModel(modelB64);
 	return sp;
-}
-
-/**
- * Computes a content hash for a file (used by tests to verify cache hits).
- *
- * @param {string} file - Path to hash.
- * @returns {string} SHA-256 hex digest.
- * @internal
- */
-export function hashFile(file: string): string {
-	return createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
